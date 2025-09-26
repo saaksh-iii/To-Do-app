@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To‑Do List</title>
+    <title>To-Do List</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,20 +11,17 @@
 </head>
 <body>
     <main class="app">
-        <aside class="sidebar" aria-label="Projects sidebar">
-            <div class="sidebar__header">
-                <h2>Projects</h2>
-                <button id="add-project" class="btn" type="button" title="Add project">＋</button>
-            </div>
-            
-            <ul id="project-list" class="project-list"></ul>
-            <p id="project-empty" class="empty" hidden>Add projects</p>
-        </aside>
-
         <section class="content">
             <header class="app__header">
-                <h1 class="app__title">To‑Do</h1>
+                <h1 class="app__title">To-Do</h1>
                 <div class="toolbar">
+                    <div class="projects-section">
+                        <select id="project-select" class="select" aria-label="Select project">
+                            <option value="">Select Project</option>
+                        </select>
+                        <button id="delete-project" class="btn" type="button" title="Delete current project">🗑️</button>
+                        <button id="add-project" class="btn" type="button" title="Add project">＋</button>
+                    </div>
                     <input id="search" class="search" type="search" placeholder="Search…" aria-label="Search tasks">
                     <select id="sort" class="select" aria-label="Sort tasks">
                         <option value="created_desc">Newest</option>
@@ -41,7 +38,10 @@
                     <button class="theme-swatch" data-theme="sage" title="Sage"></button>
                     <button class="theme-swatch" data-theme="peach" title="Peach"></button>
                     <button class="theme-swatch" data-theme="pink" title="Pink"></button>
-                    <button class="theme-swatch" data-theme="black" title="Black"></button>
+                    <button class="theme-swatch" data-theme="emerald" title="Emerald"></button>
+                    <button class="theme-swatch" data-theme="doodle" title="Doodle"></button>
+                    <button class="theme-swatch" data-theme="cute" title="Cute"></button>
+                    <button class="theme-swatch" data-theme="playful" title="Playful"></button>
                     <button class="theme-swatch" data-theme="coffee" title="Coffee"></button>
                     <button class="theme-swatch" data-theme="sunset" title="Sunset"></button>
                 </div>

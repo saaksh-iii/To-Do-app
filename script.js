@@ -5,7 +5,7 @@
     let todos = [];
     /** @type {{ id: string; name: string; color?: string }[]} */
     let projects = [];
-    /** @type {{ theme: 'dark'|'pastel'|'sage'|'peach'|'pink'|'black'|'coffee'|'sunset'; sort: string; activeProjectId: string|null }} */
+    /** @type {{ theme: 'dark'|'pastel'|'sage'|'peach'|'pink'|'emerald'|'doodle'|'cute'|'playful'|'coffee'|'sunset'; sort: string; activeProjectId: string|null }} */
     let settings = { theme: 'dark', sort: 'created_desc', activeProjectId: null };
     /** @type {'all'} */
     let currentFilter = 'all';
@@ -24,8 +24,8 @@
     const sortSelect = document.getElementById('sort');
     const themeButton = document.getElementById('theme-button');
     const themePanel = document.getElementById('theme-panel');
-    const projectList = document.getElementById('project-list');
-    const projectEmpty = document.getElementById('project-empty');
+    const projectSelect = document.getElementById('project-select');
+    const deleteProjectBtn = document.getElementById('delete-project');
     const addProjectBtn = document.getElementById('add-project');
     // No built-in smart view nav items
 
@@ -149,12 +149,17 @@
         const label = document.createElement('span');
         label.className = 'todo-item__label' + (todo.completed ? ' is-completed' : '');
         label.textContent = todo.title;
-        label.title = 'Double‑click to edit';
-        label.addEventListener('dblclick', () => startInlineEdit(li, todo));
 
         const meta = document.createElement('small');
         meta.style.color = 'var(--muted)';
         meta.textContent = formatMeta(todo);
+
+        const edit = document.createElement('button');
+        edit.className = 'todo-item__edit';
+        edit.type = 'button';
+        edit.setAttribute('aria-label', 'Edit task');
+        edit.textContent = '✏️';
+        edit.addEventListener('click', () => openEditModal(todo));
 
         const remove = document.createElement('button');
         remove.className = 'todo-item__remove';
@@ -165,6 +170,10 @@
 
         li.appendChild(checkbox);
         const textWrap = document.createElement('div');
+        textWrap.style.display = 'flex';
+        textWrap.style.flexDirection = 'column';
+        textWrap.style.gap = '4px';
+        // Removed padding since we're not using the edit icon
         textWrap.appendChild(label);
         textWrap.appendChild(meta);
         if (todo.subtasks && todo.subtasks.length) {
@@ -187,6 +196,7 @@
             textWrap.appendChild(ul);
         }
         li.appendChild(textWrap);
+        li.appendChild(edit);
         li.appendChild(remove);
         return li;
     }
@@ -199,43 +209,104 @@
         return parts.join(' • ');
     }
 
-    function startInlineEdit(container, todo) {
-        const label = container.querySelector('.todo-item__label');
-        if (!label) return;
-        const originalText = todo.title;
+    function openEditModal(todo) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        `;
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = originalText;
-        input.className = 'new-todo__input';
-        input.style.height = '32px';
-        input.style.padding = '0 10px';
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 12px; padding: 24px; min-width: 400px;
+            box-shadow: var(--shadow);
+        `;
 
-        const finish = (commit) => {
-            input.removeEventListener('blur', onBlur);
-            input.removeEventListener('keydown', onKey);
-            if (commit) {
-                const next = input.value.trim();
-                if (next && next !== originalText) {
-                    todo.title = next;
-                    save();
-                }
+        // Create form
+        const form = document.createElement('form');
+        form.innerHTML = `
+            <h3 style="margin: 0 0 16px; color: var(--text);">Edit Task</h3>
+            <div style="display: grid; gap: 12px;">
+                <div>
+                    <label style="display: block; margin-bottom: 4px; color: var(--text); font-weight: 500;">Task Title</label>
+                    <input type="text" id="edit-title" value="${todo.title}" class="new-todo__input" required>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 4px; color: var(--text); font-weight: 500;">Due Date</label>
+                    <input type="date" id="edit-due" value="${todo.dueAt ? new Date(todo.dueAt).toISOString().split('T')[0] : ''}" class="new-todo__input">
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 4px; color: var(--text); font-weight: 500;">Priority</label>
+                    <select id="edit-priority" class="select">
+                        <option value="none" ${todo.priority === 'none' ? 'selected' : ''}>No priority</option>
+                        <option value="low" ${todo.priority === 'low' ? 'selected' : ''}>Low</option>
+                        <option value="medium" ${todo.priority === 'medium' ? 'selected' : ''}>Medium</option>
+                        <option value="high" ${todo.priority === 'high' ? 'selected' : ''}>High</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 4px; color: var(--text); font-weight: 500;">Tags</label>
+                    <input type="text" id="edit-tags" value="${todo.tags ? todo.tags.join(', ') : ''}" class="new-todo__input" placeholder="Tags (comma separated)">
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end;">
+                <button type="button" id="cancel-edit" class="btn">Cancel</button>
+                <button type="submit" class="new-todo__submit">Save Changes</button>
+            </div>
+        `;
+
+        modal.appendChild(form);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Focus the title input
+        const titleInput = modal.querySelector('#edit-title');
+        titleInput.focus();
+        titleInput.select();
+
+        // Handle form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = modal.querySelector('#edit-title').value.trim();
+            const dueDate = modal.querySelector('#edit-due').value;
+            const priority = modal.querySelector('#edit-priority').value;
+            const tags = modal.querySelector('#edit-tags').value;
+
+            if (title) {
+                todo.title = title;
+                todo.dueAt = dueDate ? Date.parse(dueDate) : null;
+                todo.priority = priority;
+                todo.tags = tags ? tags.split(',').map(s => s.trim()).filter(Boolean) : [];
+                save();
+                render();
             }
-            render();
+            document.body.removeChild(overlay);
+        });
+
+        // Handle cancel
+        modal.querySelector('#cancel-edit').addEventListener('click', () => {
+            document.body.removeChild(overlay);
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        });
+
+        // Close on Escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(overlay);
+                document.removeEventListener('keydown', handleEscape);
+            }
         };
-
-        const onBlur = () => finish(true);
-        const onKey = (e) => {
-            if (e.key === 'Enter') finish(true);
-            else if (e.key === 'Escape') finish(false);
-        };
-
-        input.addEventListener('blur', onBlur);
-        input.addEventListener('keydown', onKey);
-
-        container.replaceChild(input, label);
-        input.focus();
-        input.setSelectionRange(originalText.length, originalText.length);
+        document.addEventListener('keydown', handleEscape);
     }
 
     // Simple recurrence: when completing a recurring task, create the next one
@@ -330,6 +401,11 @@
         });
     }
     addProjectBtn?.addEventListener('click', () => addProject());
+    deleteProjectBtn?.addEventListener('click', () => deleteProject());
+    projectSelect?.addEventListener('change', (e) => {
+        const projectId = e.target.value || null;
+        selectProjectById(projectId);
+    });
 
     function selectProjectById(id) {
         settings.activeProjectId = id;
@@ -344,39 +420,56 @@
         const project = { id: crypto.randomUUID(), name: name.trim() };
         projects.push(project);
         save();
+        renderProjects();
         selectProjectById(project.id);
     }
 
+    function deleteProject() {
+        const currentProjectId = settings.activeProjectId;
+        if (!currentProjectId) {
+            alert('No project selected to delete.');
+            return;
+        }
+        
+        const project = projects.find(p => p.id === currentProjectId);
+        if (!project) return;
+        
+        if (!confirm(`Delete project "${project.name}"? Tasks in this project will remain unassigned.`)) {
+            return;
+        }
+        
+        // Remove the project
+        projects = projects.filter(p => p.id !== currentProjectId);
+        
+        // Unassign tasks from this project
+        for (const todo of todos) {
+            if (todo.projectId === currentProjectId) {
+                todo.projectId = null;
+            }
+        }
+        
+        // Clear active project if it was deleted
+        if (settings.activeProjectId === currentProjectId) {
+            settings.activeProjectId = null;
+        }
+        
+        save();
+        renderProjects();
+        render();
+    }
+
     function renderProjects() {
-        if (!projectList) return;
-        projectList.innerHTML = '';
-        if (projectEmpty) projectEmpty.hidden = projects.length !== 0;
+        if (!projectSelect) return;
+        projectSelect.innerHTML = '<option value="">Select Project</option>';
+        
         for (const project of projects) {
-            const li = document.createElement('li');
-            const btn = document.createElement('button');
-            btn.className = 'nav-item';
-            btn.textContent = project.name;
-            btn.dataset.id = project.id;
-            btn.addEventListener('click', () => { selectProjectById(project.id); });
-            const del = document.createElement('button');
-            del.className = 'btn';
-            del.textContent = '×';
-            del.title = 'Delete project';
-            del.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!confirm('Delete project? Tasks will remain unassigned.')) return;
-                const id = project.id;
-                projects = projects.filter(p => p.id !== id);
-                for (const t of todos) if (t.projectId === id) t.projectId = null;
-                if (settings.activeProjectId === id) settings.activeProjectId = null;
-                save();
-                renderProjects();
-                render();
-            });
-            li.appendChild(btn);
-            li.appendChild(del);
-            projectList.appendChild(li);
-            if (settings.activeProjectId === project.id) btn.classList.add('is-active');
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = project.name;
+            if (settings.activeProjectId === project.id) {
+                option.selected = true;
+            }
+            projectSelect.appendChild(option);
         }
     }
 
